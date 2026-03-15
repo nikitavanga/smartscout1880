@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "prepare": "husky"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -31,7 +32,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
