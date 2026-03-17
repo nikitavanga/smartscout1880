@@ -1,5 +1,5 @@
 export class FrcApiError extends Error {
-    public readonly stage: "config" | "fetch" | "db" | "normalize"
+    public readonly stage: "config" | "fetch" | "db" | "normalize" | "provider"
     public readonly entity:
         | "events"
         | "teams"
@@ -16,7 +16,7 @@ export class FrcApiError extends Error {
     constructor(
         message: string,
         context: {
-            stage: "config" | "fetch" | "db" | "normalize"
+            stage: "config" | "fetch" | "db" | "normalize" | "provider"
             entity:
                 | "events"
                 | "teams"
