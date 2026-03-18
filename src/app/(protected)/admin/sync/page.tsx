@@ -21,7 +21,8 @@ export default function AdminSyncPage() {
             return eventKey.trim().length > 0
         }
 
-        return seasonYear.trim().length > 0 && eventCode.trim().length > 0
+        const parsedYear = Number(seasonYear.trim())
+        return Number.isInteger(parsedYear) && parsedYear >= 2015 && eventCode.trim().length > 0
     }, [provider, eventKey, seasonYear, eventCode])
 
     const handleSync = async () => {
@@ -36,7 +37,7 @@ export default function AdminSyncPage() {
                 provider === "tba"
                     ? {
                         eventKey: eventKey.trim(),
-                        }
+                    }
                     : {
                         seasonYear: Number(seasonYear.trim()),
                         eventCode: eventCode.trim().toUpperCase(),
@@ -53,9 +54,8 @@ export default function AdminSyncPage() {
             const data = await response.json()
 
             if (!response.ok) {
-                throw new Error(
-                    JSON.stringify(data.error ?? { message: "Sync failed" }, null, 2),
-                )
+                const errorPayload = data?.error ?? { message: "Sync failed" }
+                throw new Error(JSON.stringify(errorPayload, null, 2))
             }
 
             setResult(JSON.stringify(data.result ?? data, null, 2))
@@ -103,9 +103,12 @@ export default function AdminSyncPage() {
                                     <label className="text-sm text-slate-300">Season year</label>
                                     <Input
                                         value={seasonYear}
-                                        onChange={(e) => setSeasonYear(e.target.value)}
+                                        onChange={(e) => setSeasonYear(e.target.value.replace(/[^\d]/g, ""))}
                                         placeholder="2025"
                                         inputMode="numeric"/>
+                                    <p className="text-xs text-slate-400">
+                                        Use a 4-digit season year, e.g. <span className="font-mono">2025</span>
+                                    </p>
                                 </div>
 
                                 <div className="space-y-2">
@@ -114,6 +117,9 @@ export default function AdminSyncPage() {
                                         value={eventCode}
                                         onChange={(e) => setEventCode(e.target.value.toUpperCase())}
                                         placeholder="NYTR"/>
+                                    <p className="text-xs text-slate-400">
+                                        Use the FIRST event code only, e.g. <span className="font-mono">NYTR</span>
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -123,13 +129,13 @@ export default function AdminSyncPage() {
                         </Button>
 
                         {error ? (
-                            <pre className="rounded-xl border border-red-900 bg-red-950/50 p-4 text-sm text-red-200">
+                            <pre className="rounded-xl border border-red-900 bg-red-950/50 p-4 text-sm text-red-200 whitespace-pre-wrap break-words">
                                 {error}
                             </pre>
                         ) : null}
 
                         {result ? (
-                            <pre className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-200">
+                            <pre className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-200 whitespace-pre-wrap break-words">
                                 {result}
                             </pre>
                         ) : null}

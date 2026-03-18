@@ -1,6 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Database } from "@/types/database"
-
 import {
     fetchFrcEventListings,
     fetchFrcEventMatchResults,
@@ -35,9 +34,7 @@ export async function syncFrcEvent(params: {
     const supabase = createAdminClient()
 
     try {
-
         // 1) Fetch event listing
-
         const eventRes = await fetchFrcEventListings(seasonYear, eventCode)
 
         if (!eventRes.data?.Events?.length) {
@@ -70,9 +67,7 @@ export async function syncFrcEvent(params: {
 
         const eventId = eventRow.id
 
-
         // 2) Fetch all teams with pagination
-
         const allTeams: FrcTeamListing[] = []
         let page = 1
 
@@ -128,22 +123,18 @@ export async function syncFrcEvent(params: {
             teamIdByNumber.set(team.team_number, team.id)
         }
 
-
         // 3) Upsert event_teams
-
         const eventTeamRows = allTeams
             .map((team) => {
                 const teamId = teamIdByNumber.get(team.teamNumber)
                 if (!teamId) return null
 
                 return {
-                event_id: eventId,
-                team_id: teamId,
+                    event_id: eventId,
+                    team_id: teamId,
                 }
             })
-            .filter(
-                (row): row is { event_id: number; team_id: number } => row !== null,
-            )
+            .filter((row): row is { event_id: number; team_id: number } => row !== null)
 
         if (eventTeamRows.length > 0) {
             const { error: eventTeamsError } = await supabase
@@ -161,17 +152,29 @@ export async function syncFrcEvent(params: {
             }
         }
 
-
-        // 4) Rankings
-
+        // 4) Rankings (only latest)
         const rankingsRes = await fetchFrcEventRankings(seasonYear, eventCode)
 
-        if (rankingsRes.data?.Rankings?.length) {
-            const rankingRows = buildFrcRankingRows(
-                eventId,
-                teamIdByNumber,
-                rankingsRes.data.Rankings,
-            )
+        const rankingRows = buildFrcRankingRows(
+            eventId,
+            teamIdByNumber,
+            rankingsRes.data?.Rankings ?? [],
+        )
+
+        const { error: deleteRankingsError } = await supabase
+            .from("rankings_snapshots")
+            .delete()
+            .eq("event_id", eventId)
+
+        if (deleteRankingsError) {
+            throw new FrcApiError("Failed to clear old rankings", {
+                stage: "db",
+                entity: "rankings",
+                season: seasonYear,
+                eventCode,
+                details: deleteRankingsError.message,
+            })
+        }
 
         if (rankingRows.length > 0) {
             const { error: rankingsError } = await supabase
@@ -186,13 +189,10 @@ export async function syncFrcEvent(params: {
                     eventCode,
                     details: rankingsError.message,
                 })
-                }
             }
         }
 
-
         // 5) Schedule + Results + Score details
-
         const levels: Array<"Qualification" | "Playoff"> = [
             "Qualification",
             "Playoff",
@@ -238,9 +238,7 @@ export async function syncFrcEvent(params: {
             }
         }
 
-
         // 6) Upsert matches
-
         if (allMatches.length > 0) {
             const { error: matchesError } = await supabase
                 .from("matches")
@@ -277,9 +275,7 @@ export async function syncFrcEvent(params: {
             matchIdByKey.set(match.tba_match_key, match.id)
         }
 
-
         // 7) Build match_teams rows
-
         const matchTeams: MatchTeamInsert[] = []
 
         for (const scheduleMatch of scheduleCache) {
@@ -298,7 +294,6 @@ export async function syncFrcEvent(params: {
             matchTeams.push(...rows)
         }
 
-    // clear old match_teams for this event safely
         const matchIdsForEvent = (matchDbRows ?? []).map((match) => match.id)
 
         if (matchIdsForEvent.length > 0) {
@@ -339,6 +334,7 @@ export async function syncFrcEvent(params: {
             eventId,
             teams: allTeams.length,
             matches: allMatches.length,
+            rankings: rankingsRes.data?.Rankings?.length ?? 0,
         }
     } catch (error) {
         if (error instanceof FrcApiError) {
